@@ -6,121 +6,86 @@ class Chat extends Component {
 		super(props);
 
 		this.state = {
-			username: '',
+			username: 'Annonymous',
 			messages: [],
 			message: '',
-			symbols: 240,
-			socketId: '',
-			connections: [],
-			image: '',
-			users: [],
+			charsLeft: 240,
+			online: {},
+			loading: true,
 		};
 
 		this.socket = io(
-			document.location.protocol + '//' + document.location.host
+			document.location.protocol + '//' + document.location.host,
+			{ query: `username=${this.state.username}` }
 		);
-
-		this.socket.on('RECEIVE_MESSAGE', function(data) {
-			addMessage(data);
-		});
-		this.socket.on('INIT', data => {
-			data.id === this.socket.id
-				? initData(data)
-				: updOnline(data.connections);
-		});
-		this.socket.on('DISC', function(data) {
-			updOnline(data.connections);
-		});
-
-		const addMessage = data => {
-			this.setState({
-				messages: [...this.state.messages, data],
-			});
-			this.scrollToBottom();
-		};
-		const updOnline = data => {
-			this.setState({ connections: data });
-		};
-
-		const initData = data => {
-			this.setState(() => {
-				return {
-					connections: data.connections,
-					messages: data.messages,
-					socketId: this.socket.id,
-				};
-			});
-			this.scrollToBottom();
-		};
 	}
+
+	componentWillMount = () => {
+		this.socket.on('initial_data', data => {
+			this.setState({
+				...data,
+				loading: false,
+			});
+		});
+
+		this.socket.on('recieve_global_message', message => {
+			this.setState(prevState => ({
+				messages: [...prevState.messages, message],
+			}));
+		});
+		this.socket.on('user_disconnected', ({ online }) => {
+			this.setState({
+				online,
+			});
+		});
+		this.socket.on('user_connected', ({ online }) => {
+			this.setState({
+				online,
+			});
+		});
+	};
+
 	scrollToBottom() {
 		this.el.scrollIntoView({ behaviour: 'smooth' });
 	}
-	sendMessage = ev => {
-		ev.preventDefault();
 
-		if (
-			this.state.username.trim() &&
-			this.state.message.trim() &&
-			this.state.message.trim().length < 240
-		) {
-			const d = new Date();
-			const minutes =
-				d.getMinutes() >= 10 ? d.getMinutes() : '0' + d.getMinutes();
-			const seconds =
-				d.getSeconds() >= 10 ? d.getSeconds() : '0' + d.getSeconds();
-			const time =
-				d.getUTCDate() +
-				'/' +
-				(d.getUTCMonth() + 1) +
-				' ' +
-				d.getHours() +
-				':' +
-				minutes +
-				':' +
-				seconds;
-
-			let dataState = [...this.state.connections];
-
-			const oneIdUser = dataState.filter(item => {
-				return item.id === this.socket.id;
-			});
-
-			if (oneIdUser) {
-				this.socket.emit('SEND_MESSAGE', {
-					author: this.state.username,
-					message: this.state.message,
-					date: time,
-					id: this.socket.id,
-					color: oneIdUser[0].color,
-					image: this.state.image ? this.state.image : null,
-				});
-			}
-			if (!oneIdUser) {
-				return;
-			}
-
-			this.setState({ message: '', symbols: 240 });
-		}
-	};
-
-	changeAreaHandler = event => {
+	handleMessageOnChange = e => {
 		this.setState({
-			message: event.target.value,
-			symbols: 240 - event.target.value.length,
+			message: e.target.value,
+			symbols: 240 - e.target.value.length,
 		});
 	};
-	componentDidMount = () => {
-		this.setState({ username: this.props.email });
+
+	handleMessageSend = () => {
+		const { username: author, message, online } = this.state;
+		this.socket.emit(
+			'user_send_global_message',
+			{
+				author,
+				color:
+					online.filter(user => user.id === this.socket.id)[0]
+						.color || '#fff',
+				message,
+			},
+			() => {
+				this.setState({
+					charsLeft: 240,
+					message: '',
+				});
+			}
+		);
 	};
+
 	componentWillUnmount = () => {
 		this.socket.disconnect();
 	};
 
 	render() {
-		let messagesList = <div>Loading</div>;
-		if (this.state.messages.length > 0) {
-			messagesList = this.state.messages.map((message, i) => {
+		const { messages, message, loading, charsLeft, online } = this.state;
+		if (loading) return <div>Loading...</div>;
+		let messagesList = <div>No messages for now</div>;
+		if (messages.length > 0) {
+			messagesList = messages.map((message, i) => {
 				return (
 					<div key={i} className="element">
 						<span
@@ -140,52 +105,39 @@ class Chat extends Component {
 							{message.author}
 						</span>
 						: {message.message}
-						<p>
-							{message.image ? (
-								<img
-									className="chatImg"
-									alt="Плохой адрес картинки"
-									src={message.image}
-								/>
-							) : null}
-						</p>
 					</div>
 				);
 			});
 		}
 
 		return (
-			<div>
-				<div className="chatH">
-					Чат
-					<span
-						style={{
-							float: 'right',
-						}}
-					>
-						<div
-							style={{
-								backgroundColor: '#87d068',
-							}}
-						>
-							{this.state.connections.length}
-						</div>
-					</span>
-				</div>
-				<div
-					className="ChatMain"
-					style={{
-						height: '370px',
-						overflowY: 'scroll',
-					}}
-				>
-					<div className="messages">{messagesList}</div>
+			<div className="chat--wrapper">
+				<div className="chat--header">Чат</div>
+				<div className="chat--main-box">
+					<div className="chat--messages-box">{messagesList}</div>
 					<div
 						ref={el => {
 							this.el = el;
 						}}
 					/>
 				</div>
+				<div className="chat--controls-box">
+					<textarea
+						maxLength="240"
+						rows={4}
+						value={message}
+						onChange={this.handleMessageOnChange}
+					/>
+					<p>{charsLeft}</p>
+					<button
+						type="primary"
+						onClick={this.handleMessageSend}
+						className="btn btn-primary form-control"
+					>
+						Send
+					</button>
+				</div>
+				<aside>Users Online: {online.map(user => user.username)}</aside>
 			</div>
 		);
 	}

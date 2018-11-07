@@ -1,12 +1,12 @@
-var express = require('express');
-var app = express();
-var server = require('http').Server(app);
-var socket = require('socket.io');
-var mongoose = require('mongoose');
-var Message = require('./models/Message');
-var morgan = require('morgan');
-var path = require('path');
-var bodyParser = require('body-parser');
+const express = require('express');
+const app = express();
+const server = require('http').Server(app);
+const socket = require('socket.io');
+const mongoose = require('mongoose');
+const Message = require('./models/Message');
+const morgan = require('morgan');
+const path = require('path');
+const bodyParser = require('body-parser');
 
 app.use(
 	morgan(
@@ -28,43 +28,50 @@ app.get('*', (req, res) => {
 
 io = socket(server);
 
-var storeData = {
+const sockets_data = {
 	connections: [],
 };
 
 io.on('connection', socket => {
-	var r = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2), // red
+	const r = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2), // red
 		g = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2), // green
 		b = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2); // blue
-	var color = '#' + r + g + b;
-	var socketId = socket.id;
-	console.log('connected');
-	storeData.connections.push({ id: socketId, color: color });
-	Message.find({}).then(function(messages) {
-		io.emit('INIT', {
-			id: socketId,
-			messages: messages,
-			connections: storeData.connections,
+	const color = '#' + r + g + b;
+	sockets_data.connections.push({
+		id: socket.id,
+		color,
+		username: socket.handshake.query.username,
+	});
+	Message.find({})
+		.sort({ date: 1 })
+		.then(function(messages) {
+			socket.emit('initial_data', {
+				messages,
+				online: sockets_data.connections,
+			});
+			socket.broadcast.emit('user_connected', {
+				online: sockets_data.connections,
+			});
+		});
+
+	socket.on('disconnect', () => {
+		sockets_data.connections = sockets_data.connections.filter(
+			connection => connection.id !== socket.id
+		);
+		io.emit('user_disconnected', {
+			online: sockets_data.connections,
 		});
 	});
 
-	socket.on('disconnect', () => {
-		const oneClient = storeData.connections.filter(
-			user => user.id === socketId
-		);
-		const index = storeData.connections.indexOf(oneClient[0]);
-		storeData.connections.splice(index, 1);
-
-		io.emit('DISC', { connections: storeData.connections });
-	});
-
-	socket.on('SEND_MESSAGE', function(data) {
-		var mess = new Message(data);
-		mess.save(function(err) {
+	socket.on('user_send_global_message', function(data, callback) {
+		console.log(data);
+		const message = new Message(data);
+		message.save(function(err, created_message) {
 			if (err) {
-				return;
+				console.log(err);
 			} else {
-				io.emit('RECEIVE_MESSAGE', data);
+				callback();
+				io.emit('recieve_global_message', created_message);
 			}
 		});
 	});
