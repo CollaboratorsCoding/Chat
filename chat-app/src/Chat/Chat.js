@@ -7,12 +7,16 @@ class Chat extends Component {
 
 		this.state = {
 			username: props.username,
-			messages: [],
 			message: '',
 			charsLeft: 240,
-			online: {},
+			activeRoom: 'global',
 			loading: true,
-			rooms: [{ name: 'global' }],
+			rooms: {
+				global: {
+					messages: [],
+					online: {},
+				},
+			}
 		};
 
 		this.socket = io(
@@ -26,29 +30,42 @@ class Chat extends Component {
 	}
 
 	componentWillMount = () => {
-		this.socket.on('initial_data', data => {
-			this.setState({
-				...data,
-				loading: false,
-			});
+		this.socket.on('initial_data', ({messages,online}) => {
+			this.setState((prevState) => ({
+					rooms: {
+						...prevState.rooms,
+						global: {
+							messages,
+							online
+						}
+					},
+					loading: false,
+				
+			}));
 			this.scrollToBottom();
 		});
 
-		this.socket.on('recieve_global_message', message => {
+		this.socket.on('recieve_message', message => {
 			this.setState(prevState => ({
-				messages: [...prevState.messages, message],
+				rooms: {
+					...prevState.rooms,
+					[message.room]: {
+						...[prevState.rooms[message.room]],
+						message: [...prevState.rooms[message.room].messages, message]
+					}
+				}
 			}));
 		});
-		this.socket.on('user_disconnected', ({ online }) => {
-			this.setState({
-				online,
-			});
-		});
-		this.socket.on('user_connected', ({ online }) => {
-			this.setState({
-				online,
-			});
-		});
+		// this.socket.on('user_disconnected', ({ online }) => {
+		// 	this.setState({
+		// 		online,
+		// 	});
+		// });
+		// this.socket.on('user_connected', ({ online }) => {
+		// 	this.setState({
+		// 		online,
+		// 	});
+		// });
 	};
 
 	scrollToBottom() {
@@ -63,17 +80,18 @@ class Chat extends Component {
 	};
 
 	handleMessageSend = () => {
-		const { username: author, message, online } = this.state;
+		const { username: author, message, rooms, currentRoom } = this.state;
 
 		if (message.length < 5) return;
 		this.socket.emit(
-			'user_send_global_message',
+			'user_send_message',
 			{
 				author,
 				color:
-					online.filter(user => user.id === this.socket.id)[0]
+				rooms[currentRoom].online.filter(user => user.id === this.socket.id)[0]
 						.color || '#fff',
 				message,
+				room: currentRoom,
 			},
 			() => {
 				this.setState({
@@ -104,17 +122,18 @@ class Chat extends Component {
 
 	render() {
 		const {
-			messages,
 			message,
 			loading,
 			charsLeft,
-			online,
 			rooms,
+			currentRoom,
 		} = this.state;
+		const roomMessages = rooms[currentRoom].messages;
+		const roomUsers = rooms[currentRoom].online;
 		if (loading) return <div>Loading...</div>;
 		let messagesList = <div>No messages for now</div>;
-		if (messages.length > 0) {
-			messagesList = messages.map((message, i) => {
+		if (roomMessages.length > 0) {
+			messagesList = roomMessages.map((message, i) => {
 				return (
 					<div key={i} className="chat-message__item">
 						<span className="chat-message__date">
@@ -142,7 +161,7 @@ class Chat extends Component {
 				<div className="chat--header">
 					<h3>Чат</h3>
 					<div className="chat--windows-wrapper">
-						{rooms.map(room => (
+						{/* {rooms.map(room => (
 							<div className="chat--windows__item">
 								<div className="chat--windows__roomname">
 									{room.name}
@@ -156,7 +175,7 @@ class Chat extends Component {
 									&times;
 								</span>
 							</div>
-						))}
+						))} */}
 					</div>
 				</div>
 				<div className="chat--main-box">
@@ -169,9 +188,9 @@ class Chat extends Component {
 						/>
 					</div>
 					<aside className="chat--users">
-						<h3>Users Online:</h3>
+						<h3>Users in Room:</h3>
 						<div className="chat--users__list">
-							{online.map((user, i) => (
+							{roomUsers.map((user, i) => (
 								<span
 									key={i}
 									className="chat--users__list-item"

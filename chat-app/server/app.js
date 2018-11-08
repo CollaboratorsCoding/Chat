@@ -38,7 +38,7 @@ io.on('connection', socket => {
 		color: socket.handshake.query.color,
 		username: socket.handshake.query.username,
 	});
-	Message.find({})
+	Message.find({ room: "global"})
 		.sort({ date: 1 })
 		.then(function(messages) {
 			socket.emit('initial_data', {
@@ -59,7 +59,7 @@ io.on('connection', socket => {
 		});
 	});
 
-	socket.on('user_send_global_message', function(data, callback) {
+	socket.on('user_send_message', function(data, callback) {
 		console.log(data);
 		const message = new Message(data);
 		message.save(function(err, created_message) {
@@ -67,7 +67,7 @@ io.on('connection', socket => {
 				console.log(err);
 			} else {
 				callback();
-				io.emit('recieve_global_message', created_message);
+				io.emit('recieve_message', created_message);
 			}
 		});
 	});

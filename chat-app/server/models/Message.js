@@ -9,6 +9,8 @@ const storeSchema = new mongoose.Schema({
 		default: Date.now(),
 	},
 	color: String,
+	room: String,
+	participants: [String],
 });
 
 module.exports = mongoose.model('Message', storeSchema);
