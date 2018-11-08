@@ -6,17 +6,22 @@ class Chat extends Component {
 		super(props);
 
 		this.state = {
-			username: 'Annonymous',
+			username: props.username,
 			messages: [],
 			message: '',
 			charsLeft: 240,
 			online: {},
 			loading: true,
+			rooms: [{ name: 'global' }],
 		};
 
 		this.socket = io(
 			document.location.protocol + '//' + document.location.host,
-			{ query: `username=${this.state.username}` }
+			{
+				query: `username=${this.state.username}&color=${
+					this.props.color
+				}`,
+			}
 		);
 	}
 
@@ -26,6 +31,7 @@ class Chat extends Component {
 				...data,
 				loading: false,
 			});
+			this.scrollToBottom();
 		});
 
 		this.socket.on('recieve_global_message', message => {
@@ -52,12 +58,14 @@ class Chat extends Component {
 	handleMessageOnChange = e => {
 		this.setState({
 			message: e.target.value,
-			symbols: 240 - e.target.value.length,
+			charsLeft: 240 - e.target.value.length,
 		});
 	};
 
 	handleMessageSend = () => {
 		const { username: author, message, online } = this.state;
+
+		if (message.length < 5) return;
 		this.socket.emit(
 			'user_send_global_message',
 			{
@@ -75,36 +83,55 @@ class Chat extends Component {
 			}
 		);
 	};
+	handleNewRoom = user => {
+		const { rooms } = this.state;
+		const roomExist = rooms.filter(room => room.name === user).length;
+		if (!roomExist)
+			this.setState(prevState => ({
+				rooms: [...prevState.rooms, { name: user }],
+			}));
+	};
+	handleWindowClose = name => {
+		const { rooms } = this.state;
+		this.setState({
+			rooms: rooms.filter(room => room.name !== name),
+		});
+	};
 
 	componentWillUnmount = () => {
 		this.socket.disconnect();
 	};
 
 	render() {
-		const { messages, message, loading, charsLeft, online } = this.state;
+		const {
+			messages,
+			message,
+			loading,
+			charsLeft,
+			online,
+			rooms,
+		} = this.state;
 		if (loading) return <div>Loading...</div>;
 		let messagesList = <div>No messages for now</div>;
 		if (messages.length > 0) {
 			messagesList = messages.map((message, i) => {
 				return (
-					<div key={i} className="element">
-						<span
-							style={{
-								color: '#b5b5b5',
-								marginRight: '25px',
-							}}
-						>
-							{message.date}
+					<div key={i} className="chat-message__item">
+						<span className="chat-message__date">
+							{new Date(message.date).toLocaleString()}
 						</span>
 						<span
+							className="chat-message__author"
 							style={{
 								color: message.color,
-								fontWeight: 'bold',
 							}}
 						>
-							{message.author}
+							{message.author}:
 						</span>
-						: {message.message}
+
+						<span className="chat-message__text">
+							{message.message}
+						</span>
 					</div>
 				);
 			});
@@ -112,32 +139,73 @@ class Chat extends Component {
 
 		return (
 			<div className="chat--wrapper">
-				<div className="chat--header">Чат</div>
+				<div className="chat--header">
+					<h3>Чат</h3>
+					<div className="chat--windows-wrapper">
+						{rooms.map(room => (
+							<div className="chat--windows__item">
+								<div className="chat--windows__roomname">
+									{room.name}
+								</div>
+								<span
+									onClick={() =>
+										this.handleWindowClose(room.name)
+									}
+									className="chat--windows__close"
+								>
+									&times;
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
 				<div className="chat--main-box">
-					<div className="chat--messages-box">{messagesList}</div>
-					<div
-						ref={el => {
-							this.el = el;
-						}}
-					/>
+					<div className="chat--messages-box">
+						{messagesList}
+						<div
+							ref={el => {
+								this.el = el;
+							}}
+						/>
+					</div>
+					<aside className="chat--users">
+						<h3>Users Online:</h3>
+						<div className="chat--users__list">
+							{online.map((user, i) => (
+								<span
+									key={i}
+									className="chat--users__list-item"
+									style={{ color: user.color }}
+									onClick={() =>
+										this.handleNewRoom(user.username)
+									}
+								>
+									{user.username}
+								</span>
+							))}
+						</div>
+					</aside>
 				</div>
 				<div className="chat--controls-box">
-					<textarea
-						maxLength="240"
-						rows={4}
-						value={message}
-						onChange={this.handleMessageOnChange}
-					/>
-					<p>{charsLeft}</p>
+					<div className="chat--controls-input">
+						<textarea
+							maxLength="240"
+							value={message}
+							onChange={this.handleMessageOnChange}
+						/>
+						<span className="chat--controls-counter">
+							{charsLeft}
+						</span>
+					</div>
+
 					<button
 						type="primary"
 						onClick={this.handleMessageSend}
-						className="btn btn-primary form-control"
+						className="chat--controls-sendBtn"
 					>
 						Send
 					</button>
 				</div>
-				<aside>Users Online: {online.map(user => user.username)}</aside>
 			</div>
 		);
 	}

@@ -33,13 +33,9 @@ const sockets_data = {
 };
 
 io.on('connection', socket => {
-	const r = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2), // red
-		g = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2), // green
-		b = ('0' + Math.floor(Math.random() * 256).toString(16)).substr(-2); // blue
-	const color = '#' + r + g + b;
 	sockets_data.connections.push({
 		id: socket.id,
-		color,
+		color: socket.handshake.query.color,
 		username: socket.handshake.query.username,
 	});
 	Message.find({})
