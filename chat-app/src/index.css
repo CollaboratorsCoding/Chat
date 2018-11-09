@@ -29,17 +29,17 @@ code {
 
 /* Track */
 ::-webkit-scrollbar-track {
-	background: #f1f1f1;
+	background: none;
 }
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
-	background: #888;
+	background: #5f6877;
 }
 
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-	background: #555;
+	background: #404857;
 }
 .chat-enter {
 	margin: auto;
@@ -93,6 +93,12 @@ code {
 	border-top-right-radius: 10px;
 	text-align: left;
 	position: relative;
+	cursor: pointer;
+}
+
+.chat--windows__item:hover,
+.chat--windows__item.active-window {
+	background-color: #445b82;
 }
 
 .chat--windows__close {
@@ -129,6 +135,9 @@ code {
 	text-align: center;
 	font-weight: bold;
 	margin-top: 14px;
+	max-height: 550px;
+	height: 550px;
+	overflow-y: scroll;
 }
 
 .chat--users__list-item {

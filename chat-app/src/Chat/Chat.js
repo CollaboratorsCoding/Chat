@@ -6,23 +6,24 @@ class Chat extends Component {
 		super(props);
 
 		this.state = {
-			username: props.username,
 			message: '',
 			charsLeft: 240,
-			activeRoom: 'global',
+			currentRoom: 'global',
 			loading: true,
+			buttonDisabled: false,
 			rooms: {
 				global: {
+					visibleName: 'global',
 					messages: [],
 					online: {},
 				},
-			}
+			},
 		};
 
 		this.socket = io(
 			document.location.protocol + '//' + document.location.host,
 			{
-				query: `username=${this.state.username}&color=${
+				query: `username=${this.props.username}&color=${
 					this.props.color
 				}`,
 			}
@@ -30,42 +31,67 @@ class Chat extends Component {
 	}
 
 	componentWillMount = () => {
-		this.socket.on('initial_data', ({messages,online}) => {
-			this.setState((prevState) => ({
-					rooms: {
-						...prevState.rooms,
-						global: {
-							messages,
-							online
-						}
+		this.socket.on('initial_data', ({ messages, online }) => {
+			this.setState(prevState => ({
+				rooms: {
+					...prevState.rooms,
+					global: {
+						visibleName: 'global',
+						messages,
+						online,
 					},
-					loading: false,
-				
+				},
+				loading: false,
 			}));
 			this.scrollToBottom();
 		});
 
-		this.socket.on('recieve_message', message => {
+		this.socket.on(
+			'recieve_message',
+			({ message, messages, online, visibleName }) => {
+				console.log(message, online);
+				this.setState(prevState => ({
+					rooms: {
+						...prevState.rooms,
+						[message.room]: {
+							visibleName: prevState.rooms[message.room]
+								? prevState.rooms[message.room].visibleName
+								: visibleName,
+							online:
+								online || prevState.rooms[message.room].online,
+							messages: [
+								...(prevState.rooms[message.room]
+									? prevState.rooms[message.room].messages
+									: messages),
+								message,
+							],
+						},
+					},
+				}));
+			}
+		);
+		this.socket.on('user_disconnected', ({ online }) => {
 			this.setState(prevState => ({
 				rooms: {
 					...prevState.rooms,
-					[message.room]: {
-						...[prevState.rooms[message.room]],
-						message: [...prevState.rooms[message.room].messages, message]
-					}
-				}
+					global: {
+						...prevState.rooms.global,
+						online,
+					},
+				},
 			}));
 		});
-		// this.socket.on('user_disconnected', ({ online }) => {
-		// 	this.setState({
-		// 		online,
-		// 	});
-		// });
-		// this.socket.on('user_connected', ({ online }) => {
-		// 	this.setState({
-		// 		online,
-		// 	});
-		// });
+		this.socket.on('user_connected', ({ online }) => {
+			this.setState(prevState => ({
+				rooms: {
+					...prevState.rooms,
+					global: {
+						...prevState.rooms.global,
+						online,
+					},
+				},
+			}));
+		});
 	};
 
 	scrollToBottom() {
@@ -80,18 +106,20 @@ class Chat extends Component {
 	};
 
 	handleMessageSend = () => {
-		const { username: author, message, rooms, currentRoom } = this.state;
+		const { message, currentRoom, rooms } = this.state;
 
 		if (message.length < 5) return;
 		this.socket.emit(
 			'user_send_message',
 			{
-				author,
-				color:
-				rooms[currentRoom].online.filter(user => user.id === this.socket.id)[0]
-						.color || '#fff',
+				author: this.props.username,
+				color: this.props.color || '#fff',
 				message,
 				room: currentRoom,
+				participants:
+					currentRoom === 'global'
+						? []
+						: [this.props.username, rooms[currentRoom].visibleName],
 			},
 			() => {
 				this.setState({
@@ -101,18 +129,57 @@ class Chat extends Component {
 			}
 		);
 	};
-	handleNewRoom = user => {
-		const { rooms } = this.state;
-		const roomExist = rooms.filter(room => room.name === user).length;
-		if (!roomExist)
-			this.setState(prevState => ({
-				rooms: [...prevState.rooms, { name: user }],
-			}));
+	handleNewRoom = recipient => {
+		this.setState({
+			buttonDisabled: true,
+		});
+		const roomExist = Object.keys(this.state.rooms).filter(
+			room => this.state.rooms[room].visibleName === recipient
+		).length;
+		if (this.props.username === recipient || roomExist) return;
+		this.socket.emit(
+			'room_join',
+			{
+				to: recipient,
+				from: this.props.username,
+			},
+			({ messages, roomName }) => {
+				this.setState(prevState => ({
+					buttonDisabled: false,
+					currentRoom: roomName,
+					rooms: {
+						...prevState.rooms,
+						[roomName]: {
+							visibleName: recipient,
+							messages: messages,
+							online: [
+								{
+									username: this.props.username,
+									color: this.props.color,
+								},
+							],
+						},
+					},
+				}));
+			}
+		);
+	};
+
+	handleWindowRoomClick = name => {
+		this.setState({
+			currentRoom: name,
+		});
 	};
 	handleWindowClose = name => {
 		const { rooms } = this.state;
+		const roomsCopy = { ...rooms };
+		delete roomsCopy[name];
+		const roomsName = Object.keys(roomsCopy);
+		const prevRoom = roomsName[roomsName.length - 1];
+
 		this.setState({
-			rooms: rooms.filter(room => room.name !== name),
+			rooms: roomsCopy,
+			currentRoom: prevRoom,
 		});
 	};
 
@@ -127,9 +194,12 @@ class Chat extends Component {
 			charsLeft,
 			rooms,
 			currentRoom,
+			buttonDisabled,
 		} = this.state;
+		console.log(rooms, currentRoom);
 		const roomMessages = rooms[currentRoom].messages;
 		const roomUsers = rooms[currentRoom].online;
+
 		if (loading) return <div>Loading...</div>;
 		let messagesList = <div>No messages for now</div>;
 		if (roomMessages.length > 0) {
@@ -161,21 +231,32 @@ class Chat extends Component {
 				<div className="chat--header">
 					<h3>Чат</h3>
 					<div className="chat--windows-wrapper">
-						{/* {rooms.map(room => (
-							<div className="chat--windows__item">
-								<div className="chat--windows__roomname">
-									{room.name}
-								</div>
-								<span
-									onClick={() =>
-										this.handleWindowClose(room.name)
-									}
-									className="chat--windows__close"
+						{Object.keys(rooms).map(room => (
+							<div
+								className={`chat--windows__item ${
+									room === currentRoom ? 'active-window' : ''
+								}`}
+							>
+								<div
+									onClick={() => {
+										this.handleWindowRoomClick(room);
+									}}
+									className="chat--windows__roomname"
 								>
-									&times;
-								</span>
+									{rooms[room].visibleName}
+								</div>
+								{room !== 'global' && (
+									<span
+										onClick={() =>
+											this.handleWindowClose(room)
+										}
+										className="chat--windows__close"
+									>
+										&times;
+									</span>
+								)}
 							</div>
-						))} */}
+						))}
 					</div>
 				</div>
 				<div className="chat--main-box">
@@ -195,9 +276,11 @@ class Chat extends Component {
 									key={i}
 									className="chat--users__list-item"
 									style={{ color: user.color }}
-									onClick={() =>
-										this.handleNewRoom(user.username)
-									}
+									onClick={() => {
+										if (!buttonDisabled) {
+											this.handleNewRoom(user.username);
+										}
+									}}
 								>
 									{user.username}
 								</span>
