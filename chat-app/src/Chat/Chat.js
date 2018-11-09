@@ -216,7 +216,15 @@ class Chat extends Component {
 		const roomUsers = rooms[currentRoom].online;
 
 		if (loading) return <div>Loading...</div>;
-		let messagesList = <div>No messages for now</div>;
+		let messagesList = (
+			<div className="empty-state">
+				<div>No messages now...</div>
+				<img
+					src="https://app.optimizely.com/static/img/p13n/page-list-empty-state.svg"
+					alt=""
+				/>
+			</div>
+		);
 		if (roomMessages.length > 0) {
 			messagesList = roomMessages.map((message, i) => {
 				return (

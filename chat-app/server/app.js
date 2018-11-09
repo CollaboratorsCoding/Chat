@@ -14,7 +14,7 @@ app.use(
 	)
 );
 
-app.use(express.static(path.resolve(__dirname, '..', 'build')));
+app.use(express.static(path.resolve(__dirname, 'build')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -23,7 +23,7 @@ require('./models').connect(
 );
 
 app.get('*', (req, res) => {
-	res.sendFile(path.resolve(__dirname, '..', 'build', 'index.html'));
+	res.sendFile(path.resolve(__dirname, 'build', 'index.html'));
 });
 
 io = socket(server);

@@ -41,6 +41,19 @@ code {
 ::-webkit-scrollbar-thumb:hover {
 	background: #404857;
 }
+
+.empty-state {
+	margin: auto;
+	display: flex;
+	flex-direction: column-reverse;
+	text-align: center;
+	color: #fff;
+	font-size: 20px;
+	font-weight: bold;
+}
+.empty-state > img {
+	opacity: 0.3;
+}
 .chat-enter {
 	margin: auto;
 	padding: 20px;
