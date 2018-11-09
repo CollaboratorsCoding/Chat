@@ -49,7 +49,7 @@ class Chat extends Component {
 		this.socket.on(
 			'recieve_message',
 			({ message, messages, online, visibleName }) => {
-				console.log(message, online);
+				console.log('recieved message');
 				this.setState(prevState => ({
 					rooms: {
 						...prevState.rooms,
@@ -59,12 +59,13 @@ class Chat extends Component {
 								: visibleName,
 							online:
 								online || prevState.rooms[message.room].online,
-							messages: [
-								...(prevState.rooms[message.room]
-									? prevState.rooms[message.room].messages
-									: messages),
-								message,
-							],
+							messages: prevState.rooms[message.room]
+								? [
+										...prevState.rooms[message.room]
+											.messages,
+										message,
+								  ]
+								: messages,
 						},
 					},
 				}));
@@ -108,25 +109,39 @@ class Chat extends Component {
 	handleMessageSend = () => {
 		const { message, currentRoom, rooms } = this.state;
 
-		if (message.length < 5) return;
+		if (message.length < 1) return;
+		const messageData = {
+			author: this.props.username,
+			color: this.props.color || '#fff',
+			message,
+			room: currentRoom,
+			date: Date.now(),
+		};
+		this.setState(prevState => ({
+			charsLeft: 240,
+			message: '',
+			rooms: {
+				...prevState.rooms,
+				[currentRoom]: {
+					...prevState.rooms[currentRoom],
+					messages: [
+						...prevState.rooms[currentRoom].messages,
+						messageData,
+					],
+				},
+			},
+		}));
+		this.scrollToBottom();
 		this.socket.emit(
 			'user_send_message',
 			{
-				author: this.props.username,
-				color: this.props.color || '#fff',
-				message,
-				room: currentRoom,
+				...messageData,
 				participants:
 					currentRoom === 'global'
 						? []
 						: [this.props.username, rooms[currentRoom].visibleName],
 			},
-			() => {
-				this.setState({
-					charsLeft: 240,
-					message: '',
-				});
-			}
+			() => {}
 		);
 	};
 	handleNewRoom = recipient => {
@@ -233,23 +248,23 @@ class Chat extends Component {
 					<div className="chat--windows-wrapper">
 						{Object.keys(rooms).map(room => (
 							<div
+								key={room}
+								onClick={() => {
+									this.handleWindowRoomClick(room);
+								}}
 								className={`chat--windows__item ${
 									room === currentRoom ? 'active-window' : ''
 								}`}
 							>
-								<div
-									onClick={() => {
-										this.handleWindowRoomClick(room);
-									}}
-									className="chat--windows__roomname"
-								>
+								<div className="chat--windows__roomname">
 									{rooms[room].visibleName}
 								</div>
 								{room !== 'global' && (
 									<span
-										onClick={() =>
-											this.handleWindowClose(room)
-										}
+										onClick={e => {
+											e.stopPropagation();
+											this.handleWindowClose(room);
+										}}
 										className="chat--windows__close"
 									>
 										&times;
@@ -282,7 +297,10 @@ class Chat extends Component {
 										}
 									}}
 								>
-									{user.username}
+									{user.username}{' '}
+									{user.username === this.props.username
+										? '(You)'
+										: ''}
 								</span>
 							))}
 						</div>
@@ -294,6 +312,13 @@ class Chat extends Component {
 							maxLength="240"
 							value={message}
 							onChange={this.handleMessageOnChange}
+							onKeyDown={e => {
+								if ((e.keyCode || e.which) === 13) {
+									e.preventDefault();
+									return this.handleMessageSend();
+								}
+								return;
+							}}
 						/>
 						<span className="chat--controls-counter">
 							{charsLeft}

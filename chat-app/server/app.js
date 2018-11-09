@@ -30,6 +30,7 @@ io = socket(server);
 
 const sockets_data = {
 	connections: [],
+	roomNumber: 1,
 };
 
 io.on('connection', socket => {
@@ -54,7 +55,7 @@ io.on('connection', socket => {
 			username: socket.handshake.query.username,
 		});
 	}
-	console.log(sockets_data.connections);
+
 	socket.join('global');
 	Message.find({ room: 'global' })
 		.sort({ date: 1 })
@@ -96,58 +97,53 @@ io.on('connection', socket => {
 					const from = created_message.participants[0];
 					const to = created_message.participants[1];
 					const recipientSocket = sockets_data.connections.filter(
-						connection => connection.username === from
+						connection => connection.username === to
 					)[0].socketInstance;
-					recipientSocket.join(created_message.room);
+					recipientSocket.join(data.room);
 
 					Message.find({ participants: { $all: [to, from] } })
 						.sort({ date: 1 })
 						.then(function(messages) {
-							const online = sockets_data.connections
-								.filter(instance => {
-									if (
-										instance.username === from ||
-										instance.username === to
-									) {
-										return true;
-									}
-									return false;
-								})
-								.map(user => ({
-									username: user.username,
-									color: user.color,
-								}));
-							console.log(sockets_data.connections, online);
-							io.in(created_message.room).emit(
-								'recieve_message',
-								{
+							const onlineInRoom =
+								io.sockets.adapter.rooms[data.room].sockets;
+							const online = sockets_data.connections.filter(
+								user => onlineInRoom[user.socketInstance.id]
+							);
+							socket.broadcast
+								.to(data.room)
+								.emit('recieve_message', {
 									visibleName: from,
 									message: created_message,
 									messages,
-									online,
-								}
-							);
+									online: online.map(data => ({
+										...data,
+										socketInstance: undefined,
+									})),
+								});
 							callback();
 						});
 				} else {
-					io.in(created_message.room).emit('recieve_message', {
-						message: created_message,
-						online: sockets_data.connections.map(data => ({
-							...data,
-							socketInstance: undefined,
-						})),
-					});
+					socket.broadcast
+						.to(created_message.room)
+						.emit('recieve_message', {
+							message: created_message,
+							online: sockets_data.connections.map(data => ({
+								...data,
+								socketInstance: undefined,
+							})),
+						});
 					callback();
 				}
 			}
 		});
 	});
-	let n = 1;
+
 	socket.on('room_join', ({ to, from }, callback) => {
-		const roomName = `room${n}`;
+		const roomName = `room${sockets_data.roomNumber}`;
 		socket.join(roomName);
-		n = n + 1;
-		Message.find({ participants: { $all: [to, from] } })
+		sockets_data.roomNumber += Message.find({
+			participants: { $all: [to, from] },
+		})
 			.sort({ date: 1 })
 			.then(function(messages) {
 				callback({
