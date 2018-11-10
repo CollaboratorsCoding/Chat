@@ -11,6 +11,7 @@ class Chat extends Component {
 			currentRoom: 'global',
 			loading: true,
 			buttonDisabled: false,
+			showUserList: true,
 			rooms: {
 				global: {
 					visibleName: 'global',
@@ -49,7 +50,7 @@ class Chat extends Component {
 		this.socket.on(
 			'recieve_message',
 			({ message, messages, online, visibleName }) => {
-				console.log('recieved message');
+			
 				this.setState(prevState => ({
 					rooms: {
 						...prevState.rooms,
@@ -210,8 +211,9 @@ class Chat extends Component {
 			rooms,
 			currentRoom,
 			buttonDisabled,
+			showUserList
 		} = this.state;
-		console.log(rooms, currentRoom);
+	
 		const roomMessages = rooms[currentRoom].messages;
 		const roomUsers = rooms[currentRoom].online;
 
@@ -228,7 +230,7 @@ class Chat extends Component {
 		if (roomMessages.length > 0) {
 			messagesList = roomMessages.map((message, i) => {
 				return (
-					<div key={i} className="chat-message__item">
+					<div key={i} className={`chat-message__item ${this.props.username === message.author ? 'author' : ''}`}>
 						<span className="chat-message__date">
 							{new Date(message.date).toLocaleString()}
 						</span>
@@ -291,9 +293,12 @@ class Chat extends Component {
 							}}
 						/>
 					</div>
-					<aside className="chat--users">
+					<aside className={`chat--users ${showUserList ? '' : 'shrink'}`}>
+						<div className="hide-arrow" onClick={()=> this.setState((prevState) => ({
+							showUserList: !prevState.showUserList,
+						}))}>{showUserList ? <span>&rarr;</span>: <span>&larr;</span> }</div>
 						<h3>Users in Room:</h3>
-						<div className="chat--users__list">
+						<div className='chat--users__list'>
 							{roomUsers.map((user, i) => (
 								<span
 									key={i}
