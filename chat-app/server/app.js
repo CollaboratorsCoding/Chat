@@ -141,7 +141,8 @@ io.on('connection', socket => {
 	socket.on('room_join', ({ to, from }, callback) => {
 		const roomName = `room${sockets_data.roomNumber}`;
 		socket.join(roomName);
-		sockets_data.roomNumber += Message.find({
+		sockets_data.roomNumber += 1;
+		Message.find({
 			participants: { $all: [to, from] },
 		})
 			.sort({ date: 1 })

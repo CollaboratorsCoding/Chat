@@ -50,26 +50,37 @@ class Chat extends Component {
 		this.socket.on(
 			'recieve_message',
 			({ message, messages, online, visibleName }) => {
-			
-				this.setState(prevState => ({
-					rooms: {
-						...prevState.rooms,
-						[message.room]: {
-							visibleName: prevState.rooms[message.room]
-								? prevState.rooms[message.room].visibleName
-								: visibleName,
-							online:
-								online || prevState.rooms[message.room].online,
-							messages: prevState.rooms[message.room]
-								? [
-										...prevState.rooms[message.room]
-											.messages,
-										message,
-								  ]
-								: messages,
+				this.setState(prevState => {
+					let roomName = message.room;
+					console.log(visibleName);
+					Object.keys(this.state.rooms).forEach(room => {
+						if (
+							this.state.rooms[room].visibleName === visibleName
+						) {
+							roomName = room;
+						}
+					});
+					console.log(this.state.rooms, roomName);
+					return {
+						rooms: {
+							...prevState.rooms,
+							[roomName]: {
+								visibleName: prevState.rooms[roomName]
+									? prevState.rooms[roomName].visibleName
+									: visibleName,
+								online:
+									online || prevState.rooms[roomName].online,
+								messages: prevState.rooms[roomName]
+									? [
+											...prevState.rooms[roomName]
+												.messages,
+											message,
+									  ]
+									: messages,
+							},
 						},
-					},
-				}));
+					};
+				});
 			}
 		);
 		this.socket.on('user_disconnected', ({ online }) => {
@@ -211,9 +222,9 @@ class Chat extends Component {
 			rooms,
 			currentRoom,
 			buttonDisabled,
-			showUserList
+			showUserList,
 		} = this.state;
-	
+
 		const roomMessages = rooms[currentRoom].messages;
 		const roomUsers = rooms[currentRoom].online;
 
@@ -230,7 +241,14 @@ class Chat extends Component {
 		if (roomMessages.length > 0) {
 			messagesList = roomMessages.map((message, i) => {
 				return (
-					<div key={i} className={`chat-message__item ${this.props.username === message.author ? 'author' : ''}`}>
+					<div
+						key={i}
+						className={`chat-message__item ${
+							this.props.username === message.author
+								? 'author'
+								: ''
+						}`}
+					>
 						<span className="chat-message__date">
 							{new Date(message.date).toLocaleString()}
 						</span>
@@ -293,12 +311,27 @@ class Chat extends Component {
 							}}
 						/>
 					</div>
-					<aside className={`chat--users ${showUserList ? '' : 'shrink'}`}>
-						<div className="hide-arrow" onClick={()=> this.setState((prevState) => ({
-							showUserList: !prevState.showUserList,
-						}))}>{showUserList ? <span>&rarr;</span>: <span>&larr;</span> }</div>
+					<aside
+						className={`chat--users ${
+							showUserList ? '' : 'shrink'
+						}`}
+					>
+						<div
+							className="hide-arrow"
+							onClick={() =>
+								this.setState(prevState => ({
+									showUserList: !prevState.showUserList,
+								}))
+							}
+						>
+							{showUserList ? (
+								<span>&rarr;</span>
+							) : (
+								<span>&larr;</span>
+							)}
+						</div>
 						<h3>Users in Room:</h3>
-						<div className='chat--users__list'>
+						<div className="chat--users__list">
 							{roomUsers.map((user, i) => (
 								<span
 									key={i}

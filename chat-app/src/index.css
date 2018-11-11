@@ -128,7 +128,6 @@ code {
 }
 
 .chat--messages-box {
-
 	background: #21272f;
 	flex: 0 1 75%;
 	overflow-y: scroll;
@@ -177,11 +176,11 @@ code {
 }
 .chat-message__date {
 	color: #b5b5b5;
-    flex: 0 1 22%;
-    font-size: 12px;
-    display: block;
-    padding: 0;
-    margin: 0;
+	flex: 0 1 22%;
+	font-size: 12px;
+	display: block;
+	padding: 0;
+	margin: 0;
 	opacity: 0.6;
 }
 .chat-message__author {
@@ -255,30 +254,31 @@ code {
 	background: #40444a;
 	font-size: 16px;
 }
-
+.hide-arrow {
+	display: none;
+}
 
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {
 	.chat-message__item {
 		display: flex;
 		flex-direction: column;
-	
 	}
 	.hide-arrow {
 		display: block;
 		top: 48%;
-    left: -6px;
-    position: absolute;
-	padding: 3px 6px;
-    background: #5f6879;
-    color: #fff;
-    font-size: 19px;
-    cursor: pointer;
+		left: -6px;
+		position: absolute;
+		padding: 3px 6px;
+		background: #5f6879;
+		color: #fff;
+		font-size: 19px;
+		cursor: pointer;
 	}
 	.chat--messages-box {
 		flex: 0 1 98%;
 	}
-	.chat-message__text{
+	.chat-message__text {
 		margin: 4px 5px 0px 0px;
 	}
 	.chat-message__item {
@@ -294,8 +294,9 @@ code {
 	.chat--users.shrink {
 		flex: 0 1 2%;
 	}
-	
-	.chat--users.shrink .chat--users__list, .chat--users.shrink > h3 {
+
+	.chat--users.shrink .chat--users__list,
+	.chat--users.shrink > h3 {
 		display: none;
 	}
 	.chat--users__list {
@@ -307,23 +308,22 @@ code {
 	.chat--controls-input {
 		flex: 0 1 63%;
 	}
-
-} 
+}
 
 /* Small devices (portrait tablets and large phones, 600px and up) */
-@media only screen and (min-width: 600px) {} 
+@media only screen and (min-width: 600px) {
+}
 
 /* Medium devices (landscape tablets, 768px and up) */
-@media only screen and (min-width: 768px) {} 
+@media only screen and (min-width: 768px) {
+}
 
 /* Large devices (laptops/desktops, 992px and up) */
 @media only screen and (min-width: 992px) {
 	.chat--wrapper {
 		width: 900px;
 	}
-
-
-} 
+}
 
 /* Extra large devices (large laptops and desktops, 1200px and up) */
 @media only screen and (min-height: 900px) {
