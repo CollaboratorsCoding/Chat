@@ -1,12 +1,13 @@
 const express = require('express');
+
 const app = express();
 const server = require('http').Server(app);
-const socket = require('socket.io');
-const mongoose = require('mongoose');
-const Message = require('./models/Message');
+const socketIO = require('socket.io');
+
 const morgan = require('morgan');
 const path = require('path');
 const bodyParser = require('body-parser');
+const Message = require('./models/Message');
 
 app.use(
 	morgan(
@@ -26,127 +27,141 @@ app.get('*', (req, res) => {
 	res.sendFile(path.resolve(__dirname, 'build', 'index.html'));
 });
 
-io = socket(server);
+const io = socketIO(server);
 
-const sockets_data = {
+// CONST FOR HOLDING CONNECTIONS IN SOCKET IO DATA
+const SOCKETS_DATA = {
 	connections: [],
 	roomNumber: 1,
 };
 
+// SOCKET IO LOGIC
 io.on('connection', socket => {
+	// MULTIPLE CONNECTION FIX && ADD NEW CONNECTED USER TO CONST
 	if (
-		sockets_data.connections.filter(
+		SOCKETS_DATA.connections.filter(
 			user => user.username === socket.handshake.query.username
 		).length
 	) {
-		sockets_data.connections.map(user => {
-			return user.username === socket.handshake.query.username
+		SOCKETS_DATA.connections.map(user =>
+			user.username === socket.handshake.query.username
 				? {
-						socketInstance: socket,
-						color: socket.handshake.query.color,
-						username: socket.handshake.query.username,
+					socketInstance: socket,
+					color: socket.handshake.query.color,
+					username: socket.handshake.query.username,
 				  }
-				: user;
-		});
+				: user
+		);
 	} else {
-		sockets_data.connections.push({
+		SOCKETS_DATA.connections.push({
 			socketInstance: socket,
 			color: socket.handshake.query.color,
 			username: socket.handshake.query.username,
 		});
 	}
 
+	// join room "GLOBAL"
 	socket.join('global');
+
+	// fetch messages in "GLOBAL" and emit INITIAL DATA to THE CLIENT
 	Message.find({ room: 'global' })
 		.sort({ date: 1 })
-		.then(function(messages) {
+		.then(messages => {
 			socket.emit('initial_data', {
 				messages,
-				online: sockets_data.connections.map(data => ({
+				online: SOCKETS_DATA.connections.map(data => ({
 					...data,
 					socketInstance: undefined,
 				})),
 			});
 			socket.broadcast.emit('user_connected', {
-				online: sockets_data.connections.map(data => ({
+				online: SOCKETS_DATA.connections.map(data => ({
 					...data,
 					socketInstance: undefined,
 				})),
 			});
 		});
 
+	// REMOVE CONNECTION FROM CONST ON DISCONNECT && EMIT ACTION TO THE CLIENT FOR ONLINE UPDATE
 	socket.on('disconnect', () => {
-		sockets_data.connections = sockets_data.connections.filter(
+		SOCKETS_DATA.connections = SOCKETS_DATA.connections.filter(
 			connection => connection.socketInstance.id !== socket.id
 		);
 		io.emit('user_disconnected', {
-			online: sockets_data.connections.map(data => ({
+			online: SOCKETS_DATA.connections.map(data => ({
 				...data,
 				socketInstance: undefined,
 			})),
 		});
 	});
 
-	socket.on('user_send_message', function(data, callback) {
+	// IF USER SEND MESSAGE FROM CLIENT TO OTHER CLIENT
+	socket.on('user_send_message', (data, callback) => {
 		const message = new Message(data);
-		message.save(function(err, created_message) {
+
+		// CREATE MESSAGE IN DB && SAVE && CHECK IF IT"S GLOBAL ROOM
+		message.save((err, createdMessage) => {
 			if (err) {
 				console.log(err);
-			} else {
-				if (created_message.participants.length > 0) {
-					const from = created_message.participants[0];
-					const to = created_message.participants[1];
-					const recipientSocket = sockets_data.connections.filter(
-						connection => connection.username === to
-					)[0].socketInstance;
-					recipientSocket.join(data.room);
+			} else if (createdMessage.participants.length > 0) {
+				// AUTHOR
+				const from = createdMessage.participants[0];
+				// RECIPIENT
+				const to = createdMessage.participants[1];
 
-					Message.find({ participants: { $all: [to, from] } })
-						.sort({ date: 1 })
-						.then(function(messages) {
-							const onlineInRoom =
-								io.sockets.adapter.rooms[data.room].sockets;
-							const online = sockets_data.connections.filter(
-								user => onlineInRoom[user.socketInstance.id]
-							);
-							socket.broadcast
-								.to(data.room)
-								.emit('recieve_message', {
-									visibleName: from,
-									message: created_message,
-									messages,
-									online: online.map(data => ({
-										...data,
-										socketInstance: undefined,
-									})),
-								});
-							callback();
-						});
-				} else {
-					socket.broadcast
-						.to(created_message.room)
-						.emit('recieve_message', {
-							message: created_message,
-							online: sockets_data.connections.map(data => ({
-								...data,
+				// RECIPIENT SOCKET INSTANCE
+				const recipientSocket = SOCKETS_DATA.connections.filter(
+					connection => connection.username === to
+				)[0].socketInstance;
+				// CONNECTED USERS IN ROOM
+				const onlineInRoom =
+					io.sockets.adapter.rooms[data.room].sockets;
+				const online = SOCKETS_DATA.connections.filter(
+					user => onlineInRoom[user.socketInstance.id]
+				);
+				// RECIPIENT JOIN ROOM CREATED BY AUTHOR IN 'room_join'
+				recipientSocket.join(data.room);
+
+				// FETCH INITIAL ROOM DATA FOR RECIPIENT IF HE WASN'T IN ROOM BEFORE
+				Message.find({ participants: { $all: [to, from] } })
+					.sort({ date: 1 })
+					.then(messages => {
+						socket.broadcast.to(data.room).emit('recieve_message', {
+							visibleName: from,
+							message: createdMessage,
+							messages,
+							online: online.map(onlineData => ({
+								...onlineData,
 								socketInstance: undefined,
 							})),
 						});
-					callback();
-				}
+						callback();
+					});
+			} else {
+				socket.broadcast
+					.to(createdMessage.room)
+					.emit('recieve_message', {
+						message: createdMessage,
+						online: SOCKETS_DATA.connections.map(onlineData => ({
+							...onlineData,
+							socketInstance: undefined,
+						})),
+					});
+				callback();
 			}
 		});
 	});
 
+	// Client joined to room with other user (when clicked on username in users list);
 	socket.on('room_join', ({ to, from }, callback) => {
-		const roomName = `room${sockets_data.roomNumber}`;
+		const roomName = `room${SOCKETS_DATA.roomNumber}`;
 		socket.join(roomName);
-		sockets_data.roomNumber += 1;
+		SOCKETS_DATA.roomNumber += 1;
 		Message.find({
 			participants: { $all: [to, from] },
 		})
 			.sort({ date: 1 })
-			.then(function(messages) {
+			.then(messages => {
 				callback({
 					messages,
 					roomName,
@@ -154,6 +169,6 @@ io.on('connection', socket => {
 			});
 	});
 });
-server.listen(8080, function() {
+server.listen(process.env.PORT || 8080, () => {
 	console.log('server is running on port 8080');
 });

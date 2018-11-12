@@ -1,36 +1,36 @@
 {
-  "extends": ["react-app", "airbnb", "prettier", "prettier/react"],
-  "plugins": ["prettier"],
-  "rules": {
-    "jsx-a11y/click-events-have-key-events": 0,
-    "jsx-a11y/no-static-element-interactions": 0,
-    "react/no-did-update-set-state": 0,
-    "prefer-destructuring": 0,
-    "import/no-unresolved": 2,
-    "global-require": 0,
-    "linebreak-style": 0,
-    "react/destructuring-assignment": 0,
-    "indent": ["warn", "tab"],
-    "no-use-before-define": 0,
-    "no-param-reassign": 0,
-    "react/jsx-filename-extension": [
-      1,
-      {
-        "extensions": [".js", ".jsx"]
-      }
-    ],
-    "react/prop-types": 0,
-    "no-underscore-dangle": 0,
-    "import/imports-first": ["error", "absolute-first"],
-    "import/newline-after-import": "error"
-  },
-  "globals": {
-    "window": true,
-    "document": true,
-    "localStorage": true,
-    "FormData": true,
-    "FileReader": true,
-    "Blob": true,
-    "navigator": true
-  }
+	"extends": ["react-app", "airbnb", "prettier", "prettier/react"],
+	"plugins": ["prettier"],
+	"rules": {
+		"jsx-a11y/click-events-have-key-events": 0,
+		"jsx-a11y/no-static-element-interactions": 0,
+		"react/no-did-update-set-state": 0,
+		"prefer-destructuring": 0,
+		"import/no-unresolved": 2,
+		"global-require": 0,
+		"linebreak-style": 0,
+		"react/destructuring-assignment": 0,
+		"indent": ["warn", "tab"],
+		"no-use-before-define": 0,
+		"no-param-reassign": 0,
+		"react/jsx-filename-extension": [
+			1,
+			{
+				"extensions": [".js", ".jsx"]
+			}
+		],
+		"react/prop-types": 0,
+		"no-underscore-dangle": 0,
+		"import/imports-first": ["error", "absolute-first"],
+		"import/newline-after-import": "error"
+	},
+	"globals": {
+		"window": true,
+		"document": true,
+		"localStorage": true,
+		"FormData": true,
+		"FileReader": true,
+		"Blob": true,
+		"navigator": true
+	}
 }

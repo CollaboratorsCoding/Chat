@@ -1,6 +1,11 @@
 import React, { Component } from 'react';
 import io from 'socket.io-client';
 
+import UsersListSidebar from './components/UsersListSidebar';
+import ChatHeader from './components/ChatHeader';
+import MessagesBox from './components/MessagesBox';
+import ChatControls from './components/ChatControls';
+
 class Chat extends Component {
 	constructor(props) {
 		super(props);
@@ -11,7 +16,7 @@ class Chat extends Component {
 			currentRoom: 'global',
 			loading: true,
 			buttonDisabled: false,
-			showUserList: true,
+
 			rooms: {
 				global: {
 					visibleName: 'global',
@@ -21,8 +26,9 @@ class Chat extends Component {
 			},
 		};
 
+		// SOCKET CONNECTION
 		this.socket = io(
-			document.location.protocol + '//' + document.location.host,
+			`${document.location.protocol}//${document.location.host}`,
 			{
 				query: `username=${this.props.username}&color=${
 					this.props.color
@@ -31,7 +37,15 @@ class Chat extends Component {
 		);
 	}
 
+	// SCROLL DOWN IN MESSAGE BOX WHEN WINDOW CHAT CHANGED
+	componentDidUpdate = (prevProps, prevState) => {
+		if (prevState.currentRoom !== this.state.currentRoom) {
+			this.scrollToBottom();
+		}
+	};
+
 	componentWillMount = () => {
+		// INITIAL DATA - MESSAGES, ONLINE
 		this.socket.on('initial_data', ({ messages, online }) => {
 			this.setState(prevState => ({
 				rooms: {
@@ -47,20 +61,17 @@ class Chat extends Component {
 			this.scrollToBottom();
 		});
 
+		// HANDLE FOR MESSAGE RECIEVED BY USER FROM ANOTHER USER
 		this.socket.on(
 			'recieve_message',
 			({ message, messages, online, visibleName }) => {
 				this.setState(prevState => {
 					let roomName = message.room;
-					console.log(visibleName);
-					Object.keys(this.state.rooms).forEach(room => {
-						if (
-							this.state.rooms[room].visibleName === visibleName
-						) {
+					Object.keys(prevState.rooms).forEach(room => {
+						if (prevState.rooms[room].visibleName === visibleName) {
 							roomName = room;
 						}
 					});
-					console.log(this.state.rooms, roomName);
 					return {
 						rooms: {
 							...prevState.rooms,
@@ -72,17 +83,21 @@ class Chat extends Component {
 									online || prevState.rooms[roomName].online,
 								messages: prevState.rooms[roomName]
 									? [
-											...prevState.rooms[roomName]
-												.messages,
-											message,
+										...prevState.rooms[roomName]
+											.messages,
+										message,
 									  ]
 									: messages,
+								hasNewMessages:
+									prevState.currentRoom !== roomName,
 							},
 						},
 					};
 				});
 			}
 		);
+
+		// UPDATE ONLINE ON DISC
 		this.socket.on('user_disconnected', ({ online }) => {
 			this.setState(prevState => ({
 				rooms: {
@@ -94,6 +109,8 @@ class Chat extends Component {
 				},
 			}));
 		});
+
+		// UPDATE ONLINE ON CONNECT
 		this.socket.on('user_connected', ({ online }) => {
 			this.setState(prevState => ({
 				rooms: {
@@ -107,9 +124,9 @@ class Chat extends Component {
 		});
 	};
 
-	scrollToBottom() {
-		this.el.scrollIntoView({ behaviour: 'smooth' });
-	}
+	componentWillUnmount = () => {
+		this.socket.disconnect();
+	};
 
 	handleMessageOnChange = e => {
 		this.setState({
@@ -118,10 +135,12 @@ class Chat extends Component {
 		});
 	};
 
-	handleMessageSend = () => {
+	handleMessageSend = async () => {
 		const { message, currentRoom, rooms } = this.state;
 
 		if (message.length < 1) return;
+
+		// CHANGE STATE WITH NEW MESSAGE IN ROOM
 		const messageData = {
 			author: this.props.username,
 			color: this.props.color || '#fff',
@@ -129,7 +148,7 @@ class Chat extends Component {
 			room: currentRoom,
 			date: Date.now(),
 		};
-		this.setState(prevState => ({
+		await this.setState(prevState => ({
 			charsLeft: 240,
 			message: '',
 			rooms: {
@@ -144,6 +163,8 @@ class Chat extends Component {
 			},
 		}));
 		this.scrollToBottom();
+
+		// EMIT SOCKET FOR SAVE MESSAGE IN DB AND SEND IT VIA SOCKET TO RECIPIENT
 		this.socket.emit(
 			'user_send_message',
 			{
@@ -156,14 +177,18 @@ class Chat extends Component {
 			() => {}
 		);
 	};
+
 	handleNewRoom = recipient => {
 		this.setState({
 			buttonDisabled: true,
 		});
+		// CHECK IF ROOM ALREADY OPENED
 		const roomExist = Object.keys(this.state.rooms).filter(
 			room => this.state.rooms[room].visibleName === recipient
 		).length;
 		if (this.props.username === recipient || roomExist) return;
+
+		// IF NO - EMIT SOCKET TO JOIN ROOM && FETCH ALL MESSAGES WITH THAT PARTICIPANTS IN ROOM AS CALLBACK
 		this.socket.emit(
 			'room_join',
 			{
@@ -178,7 +203,7 @@ class Chat extends Component {
 						...prevState.rooms,
 						[roomName]: {
 							visibleName: recipient,
-							messages: messages,
+							messages,
 							online: [
 								{
 									username: this.props.username,
@@ -193,10 +218,19 @@ class Chat extends Component {
 	};
 
 	handleWindowRoomClick = name => {
+		const { rooms } = this.state;
 		this.setState({
 			currentRoom: name,
+			rooms: {
+				...rooms,
+				[name]: {
+					...rooms[name],
+					hasNewMessages: false,
+				},
+			},
 		});
 	};
+
 	handleWindowClose = name => {
 		const { rooms } = this.state;
 		const roomsCopy = { ...rooms };
@@ -210,9 +244,9 @@ class Chat extends Component {
 		});
 	};
 
-	componentWillUnmount = () => {
-		this.socket.disconnect();
-	};
+	scrollToBottom() {
+		this.el.scrollIntoView({ behaviour: 'smooth' });
+	}
 
 	render() {
 		const {
@@ -222,163 +256,45 @@ class Chat extends Component {
 			rooms,
 			currentRoom,
 			buttonDisabled,
-			showUserList,
 		} = this.state;
 
 		const roomMessages = rooms[currentRoom].messages;
 		const roomUsers = rooms[currentRoom].online;
 
 		if (loading) return <div>Loading...</div>;
-		let messagesList = (
-			<div className="empty-state">
-				<div>No messages now...</div>
-				<img
-					src="https://app.optimizely.com/static/img/p13n/page-list-empty-state.svg"
-					alt=""
-				/>
-			</div>
-		);
-		if (roomMessages.length > 0) {
-			messagesList = roomMessages.map((message, i) => {
-				return (
-					<div
-						key={i}
-						className={`chat-message__item ${
-							this.props.username === message.author
-								? 'author'
-								: ''
-						}`}
-					>
-						<span className="chat-message__date">
-							{new Date(message.date).toLocaleString()}
-						</span>
-						<span
-							className="chat-message__author"
-							style={{
-								color: message.color,
-							}}
-						>
-							{message.author}:
-						</span>
-
-						<span className="chat-message__text">
-							{message.message}
-						</span>
-					</div>
-				);
-			});
-		}
-
 		return (
 			<div className="chat--wrapper">
-				<div className="chat--header">
-					<h3>Чат</h3>
-					<div className="chat--windows-wrapper">
-						{Object.keys(rooms).map(room => (
-							<div
-								key={room}
-								onClick={() => {
-									this.handleWindowRoomClick(room);
-								}}
-								className={`chat--windows__item ${
-									room === currentRoom ? 'active-window' : ''
-								}`}
-							>
-								<div className="chat--windows__roomname">
-									{rooms[room].visibleName}
-								</div>
-								{room !== 'global' && (
-									<span
-										onClick={e => {
-											e.stopPropagation();
-											this.handleWindowClose(room);
-										}}
-										className="chat--windows__close"
-									>
-										&times;
-									</span>
-								)}
-							</div>
-						))}
-					</div>
-				</div>
+				<ChatHeader
+					rooms={rooms}
+					currentRoom={currentRoom}
+					handleWindowClose={this.handleWindowClose}
+					handleWindowRoomClick={this.handleWindowRoomClick}
+				/>
 				<div className="chat--main-box">
 					<div className="chat--messages-box">
-						{messagesList}
+						<MessagesBox
+							roomMessages={roomMessages}
+							username={this.props.username}
+						/>
 						<div
 							ref={el => {
 								this.el = el;
 							}}
 						/>
 					</div>
-					<aside
-						className={`chat--users ${
-							showUserList ? '' : 'shrink'
-						}`}
-					>
-						<div
-							className="hide-arrow"
-							onClick={() =>
-								this.setState(prevState => ({
-									showUserList: !prevState.showUserList,
-								}))
-							}
-						>
-							{showUserList ? (
-								<span>&rarr;</span>
-							) : (
-								<span>&larr;</span>
-							)}
-						</div>
-						<h3>Users in Room:</h3>
-						<div className="chat--users__list">
-							{roomUsers.map((user, i) => (
-								<span
-									key={i}
-									className="chat--users__list-item"
-									style={{ color: user.color }}
-									onClick={() => {
-										if (!buttonDisabled) {
-											this.handleNewRoom(user.username);
-										}
-									}}
-								>
-									{user.username}{' '}
-									{user.username === this.props.username
-										? '(You)'
-										: ''}
-								</span>
-							))}
-						</div>
-					</aside>
+					<UsersListSidebar
+						roomUsers={roomUsers}
+						username={this.props.username}
+						buttonDisabled={buttonDisabled}
+						handleNewRoom={this.handleNewRoom}
+					/>
 				</div>
-				<div className="chat--controls-box">
-					<div className="chat--controls-input">
-						<textarea
-							maxLength="240"
-							value={message}
-							onChange={this.handleMessageOnChange}
-							onKeyDown={e => {
-								if ((e.keyCode || e.which) === 13) {
-									e.preventDefault();
-									return this.handleMessageSend();
-								}
-								return;
-							}}
-						/>
-						<span className="chat--controls-counter">
-							{charsLeft}
-						</span>
-					</div>
-
-					<button
-						type="primary"
-						onClick={this.handleMessageSend}
-						className="chat--controls-sendBtn"
-					>
-						Send
-					</button>
-				</div>
+				<ChatControls
+					message={message}
+					handleMessageOnChange={this.handleMessageOnChange}
+					handleMessageSend={this.handleMessageSend}
+					charsLeft={charsLeft}
+				/>
 			</div>
 		);
 	}

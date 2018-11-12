@@ -96,7 +96,12 @@ code {
 	display: flex;
 	flex-direction: row;
 }
-
+.chat--windows__roomname {
+	display: flex;
+	flex-direction: row-reverse;
+	justify-content: center;
+	align-items: center;
+}
 .chat--windows__item {
 	padding: 6px 21px 6px 10px;
 	background-color: #2e394c;
@@ -256,6 +261,16 @@ code {
 }
 .hide-arrow {
 	display: none;
+}
+
+.new-message {
+	height: 7px;
+	width: 7px;
+	border-radius: 50%;
+	background: #ff9b00;
+	display: block;
+	margin-right: 5px;
+	margin-top: 4px;
 }
 
 /* Extra small devices (phones, 600px and down) */

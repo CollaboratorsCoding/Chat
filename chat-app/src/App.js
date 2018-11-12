@@ -2,13 +2,14 @@ import React, { Component } from 'react';
 import { CirclePicker } from 'react-color';
 import Chat from './Chat/Chat';
 
-export class App extends Component {
+class App extends Component {
 	state = {
 		username: '',
 		enter: false,
 		color: '#fff',
 		picker: false,
 	};
+
 	handleEnterChatClick = () => {
 		if (this.state.username.length < 13 && this.state.username.length > 2) {
 			localStorage.setItem('username', this.state.username);
@@ -18,6 +19,7 @@ export class App extends Component {
 			});
 		}
 	};
+
 	render() {
 		const { enter, username, color, picker } = this.state;
 		const oldUsername = localStorage.getItem('username');
@@ -53,15 +55,17 @@ export class App extends Component {
 				/>
 				{picker ? (
 					<CirclePicker
-						color={this.state.color}
-						onChange={color =>
+						color={color}
+						onChange={newColor =>
 							this.setState({
-								color: color.hex,
+								color: newColor.hex,
 							})
 						}
 					/>
 				) : null}
-				<button onClick={this.handleEnterChatClick}>Enter</button>
+				<button type="button" onClick={this.handleEnterChatClick}>
+					Enter
+				</button>
 			</div>
 		);
 	}
