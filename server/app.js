@@ -19,9 +19,7 @@ app.use(express.static(path.resolve(__dirname, 'build')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-require('./models').connect(
-	'mongodb://admin:admin@ds115546.mlab.com:15546/chat-logs'
-);
+require('./models').connect('mongodb://localhost:27017/chat');
 
 app.get('*', (req, res) => {
 	res.sendFile(path.resolve(__dirname, 'build', 'index.html'));
