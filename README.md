@@ -2,8 +2,8 @@ Demo - https://chat-socket-io-ex.herokuapp.com/
 
 ## Available Scripts
 
-`./chat-app` - CLIENT code and CRA dev server <br>
-`./chat-app/server` - SERVER NodeJS code
+`./chat-app` - CLIENT code and CRA dev server (React.js, SocketIO) <br>
+`./chat-app/server` - SERVER code (NodeJS, SocketIO, Mongo)
 
 ### RUN CLIENT APP
 
@@ -31,8 +31,10 @@ Launches the server of socket io based app on NodeJS with DB connection;
 -   Global window chat - sending messages to all users that are currently online
     ![](2.gif)
 
--   Private chat - with selected by you online user - by left click on username on the right sidebar (it will create a new window like in browser)
+-   Private chat - by left click on username on the right sidebar (it will create a new tab with private chat)
     ![](3.gif)
-
-*   Mobile Friendly
     ![](4.gif)
+
+-   Mobile Friendly
+
+    ![](5.gif)

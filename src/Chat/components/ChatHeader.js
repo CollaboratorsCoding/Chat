@@ -8,7 +8,7 @@ function ChatHeader({
 }) {
 	return (
 		<div className="chat--header">
-			<h3>Чат</h3>
+			<h3>Chat</h3>
 			<div className="chat--windows-wrapper">
 				{Object.keys(rooms).map(room => (
 					<div
