@@ -1,5 +1,11 @@
 Demo - https://chat-socket-io-ex.herokuapp.com/
 
+<h1>Chat </h1>
+<p align="center">
+ 
+  <img src="chat.png"/>
+</p>
+
 ## Available Scripts
 
 `./chat-app` - CLIENT code and CRA dev server (React.js, SocketIO) <br>
